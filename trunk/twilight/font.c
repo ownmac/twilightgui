@@ -78,15 +78,6 @@ int font_init(void)
         return 0;
     }
 
-    error = FT_Set_Pixel_Sizes(face, 0, 16);
-    if(error)
-	{
-		printf("freetype set pixel sizes! errno: %d\n", error);
-		return 0;
-	}
-
-    error = FT_Load_Char(face, 'A', FT_LOAD_RENDER);
-
     return 1;
 
 read_error:
