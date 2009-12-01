@@ -5,18 +5,55 @@
 #include "gdi.h"
 #include "font.h"
 
-struct ts_event 
+char* cpu(void)
 {
-	unsigned short pressure;
-	unsigned short x;
-	unsigned short y;
-	unsigned short pad;
-};
+    unsigned int total;
+
+    float user;
+    float nice;
+    float system;
+    float idle;
+
+    char *cpu;
+    char text[201];
+
+    FILE *fp;
+
+    fp = fopen("/proc/stat", "r");
+    while (fgets(text, 200, fp))
+    {
+        if (strstr(text, "cpu"))
+        {
+              sscanf(text, "%s %f %f %f %f", cpu, &user, &nice, &system, &idle);
+        }
+    }
+    fclose(fp);
+
+    total = (user + nice + system + idle);
+    user = (user / total) * 100;
+    nice = (nice / total) * 100;
+    system = (system / total) * 100;
+    idle = (idle / total) * 100;
+
+    cpu = malloc(32);
+    memset(cpu, 0, 32);
+    sprintf(cpu, "%4.2f %4.2f %3.2f %4.2f", user, nice, system, idle);
+
+    return cpu;
+}
 
 int main(int argc, char **argv)
 {
     int i;
+
+    int total;
+	float user, nice, system, idle;
+	char cpu[32];
+	char str[64];
+	FILE *fp;
+
     struct canvas *ca = create_canvas(320, 240);
+    struct canvas *ca_cpu = create_canvas(300, 20);
 
     if(lcd_init() < 0)
     	return 0;
@@ -24,25 +61,45 @@ int main(int argc, char **argv)
     	return 0;
 
     fill_rectangle(ca, 0, 0, 320, 240, ARGB(255, 0, 0, 0));
+    paint_canvas(ca, 0, 0);
 
-    
-    for(i = 0; i < 1; i++)
+	memset(cpu, 0, sizeof(cpu));
+    sprintf(cpu, "user nice   sys   idle");
+    fill_rectangle(ca_cpu, 0, 0, 160, 20, ARGB(255, 0, 0, 255));
+    text(ca_cpu, 0, 0, 300, 16, ARGB(255, 0, 0, 0), cpu);
+    paint_canvas(ca_cpu, 10, 80);
+    while(1)
     {
-        fill_rectangle(ca, 10, 10, 30, 30, ARGB(100, 0, 255, 0));
-        fill_rectangle(ca, 20, 20, 30, 30, ARGB(200, 0, 255, 0));
-        //fill_rectangle(ca, 20, 20, 30, 30, ARGB(100, 0, 255, 0));
-        //fill_rectangle(ca, 10 + i * 30, 50, 30, 30, ARGB(100, 0, 255, 0));
-        //fill_rectangle(ca, 10 + i * 30, 90, 30, 30, ARGB(100, 0, 0, 255));
-        line(ca, 0, 0, 320, 240, ARGB(100, 0, 255, 0));
-        line(ca, 0, 0, 320, 120, ARGB(100, 0, 255, 0));
-        line(ca, 0, 0, 160, 240, ARGB(100, 0, 255, 0));
-        line(ca, 320, 0, 0, 240, ARGB(100, 0, 255, 0));
+    	memset(str, 0, sizeof(str));
+    	memset(cpu, 0, sizeof(cpu));
+
+		fp = fopen("/proc/stat", "r");
+		while (fgets(str, 200, fp))
+		{
+			if (strstr(str, "cpu"))
+            {
+                sscanf(str, "%s %f %f %f %f", cpu, &user, &nice, &system, &idle);
+                break;
+            }
+        }
+        fclose(fp);
+
+        total = (user + nice + system + idle);
+        user = (user / total) * 100;
+        nice = (nice / total) * 100;
+        system = (system / total) * 100;
+        idle = (idle / total) * 100;
+        sprintf(cpu, "%4.2f  %4.2f  %4.2f  %4.2f", user, nice, system, idle);
+
+        fill_rectangle(ca_cpu, 0, 0, 300, 20, ARGB(255, 0, 0, 0));
+        text(ca_cpu, 0, 0, 300, 16, ARGB(255, 0, 0, 255), cpu);
+        paint_canvas(ca_cpu, 10, 100);
+
+        sleep(1);
     }
 
-    text(ca, 10, 100, 310, 24, ARGB(255, 0, 0, 255), "天王盖地虎，宝塔镇河妖");
-
-    paint_canvas(ca, 0, 0);
+    release_canvas(ca_cpu);
     release_canvas(ca);
-
+    return 0;
 }
 

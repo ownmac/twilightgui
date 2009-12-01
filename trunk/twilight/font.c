@@ -23,55 +23,55 @@ int font_init(void)
         return 0;
     }
 
-    if(stat(FONT_FILE,	&st) < 0)
-	{
-		printf("stat failed!\n");
-		return 0;
-	}
-	font_buffer_size = st.st_size;
-
-	if((shm_font = shmget(SHM_FONT_KEY, font_buffer_size, 0)) >= 0)
-	{
-		if((font_buffer = shmat(shm_font, NULL, 0)) <= 0)
-		{
-			printf("get share memory address failed!\n");
-			goto shmat_error;
-		}
-	}
-	else if(errno == ENOENT)
+    if(stat(FONT_FILE,    &st) < 0)
     {
-    	if((shm_font = shmget(SHM_FONT_KEY, font_buffer_size, IPC_CREAT)) < 0)
-		{
-    		printf("share memory get failed!\n");
-    		return 0;
-		}
-		if((font_buffer = shmat(shm_font, NULL, 0)) <= 0)
-		{
-			printf("share memory at font buffer failed!\n");
-			return 0;
-		}
+        printf("stat failed!\n");
+        return 0;
+    }
+    font_buffer_size = st.st_size;
 
-		if((fd = open(FONT_FILE, O_RDONLY)) < 0)
-		{
-			printf("open font file failed!\n");
-			goto open_error;
-		}
-		if(read(fd, font_buffer, font_buffer_size) < font_buffer_size)
-		{
-			printf("read font file failed! %d\n", font_buffer_size);
-			perror("a");
-			goto read_error;
-		}
-		close(fd);
+    if((shm_font = shmget(SHM_FONT_KEY, font_buffer_size, 0)) >= 0)
+    {
+        if((font_buffer = shmat(shm_font, NULL, 0)) <= 0)
+        {
+            printf("get share memory address failed!\n");
+            goto shmat_error;
+        }
+    }
+    else if(errno == ENOENT)
+    {
+        if((shm_font = shmget(SHM_FONT_KEY, font_buffer_size, IPC_CREAT)) < 0)
+        {
+            printf("share memory get failed!\n");
+            return 0;
+        }
+        if((font_buffer = shmat(shm_font, NULL, 0)) <= 0)
+        {
+            printf("share memory at font buffer failed!\n");
+            return 0;
+        }
+
+        if((fd = open(FONT_FILE, O_RDONLY)) < 0)
+        {
+            printf("open font file failed!\n");
+            goto open_error;
+        }
+        if(read(fd, font_buffer, font_buffer_size) < font_buffer_size)
+        {
+            printf("read font file failed! %d\n", font_buffer_size);
+            perror("a");
+            goto read_error;
+        }
+        close(fd);
     }
     else
     {
-    	printf("share memory get failed! errno: %d\n", error);
-    	return 0;
+        printf("share memory get failed! errno: %d\n", error);
+        return 0;
     }
 
     error = FT_New_Memory_Face(library,
-				font_buffer, font_buffer_size, 0, &face);
+                font_buffer, font_buffer_size, 0, &face);
     if(error)
     {
         printf("freetype new font face failed! errno: %d\n", error);
@@ -83,14 +83,14 @@ int font_init(void)
 read_error:
     close(fd);
 open_error:
-	shmdt(font_buffer);
+    shmdt(font_buffer);
 shmat_error:
-	shmctl(shm_font, IPC_RMID, NULL);
-	return 0;
+    shmctl(shm_font, IPC_RMID, NULL);
+    return 0;
 }
 
 void font_release(void)
 {
-	shmdt(font_buffer);
-	shmctl(shm_font, IPC_RMID, NULL);
+    shmdt(font_buffer);
+    shmctl(shm_font, IPC_RMID, NULL);
 }
