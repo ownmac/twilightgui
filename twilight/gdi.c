@@ -94,8 +94,7 @@ void paint_canvas(struct canvas *ca, U32 x, U32 y)
     U32 width, height;
     U8 *dest = framebuffer + y * bytes_per_line + x * sizeof(COLOR);
     U8 *src = ca->data;
-    U32 src_step = ca->width * sizeof(COLOR
-    		printf("%d\n", slot->bitmap.rows););
+    U32 src_step = ca->width * sizeof(COLOR);
 
     if(x > xres || y > yres)
     {
