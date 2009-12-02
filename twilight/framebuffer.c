@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <linux/fb.h>
 #include <sys/mman.h>
+#include <sys/ioctl.h>
 #include "framebuffer.h"
 
 static struct fb_fix_screeninfo f_info;
@@ -14,10 +15,8 @@ U32 bytes_per_line;
 U32 bytes_per_screen;
 
 
-int lcd_init()
+int framebuffer_init()
 {
-    int ret;
-
     int fd = open("/dev/fb0", O_RDWR);
     if(fd < 0)
     {

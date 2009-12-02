@@ -1,4 +1,4 @@
-#include "gdi.h"
+#include "canvas.h"
 
 extern U32 bytes_per_line;
 extern U8 *framebuffer;
@@ -54,7 +54,7 @@ static inline COLOR alpha_blend(COLOR src, COLOR dest, U32 a)
     return color;
 }
 
-struct canvas* create_canvas(U32 width, U32 height)
+struct canvas* canvas_create(U32 width, U32 height)
 {
     struct canvas *ca = malloc(sizeof(struct canvas));
     if(ca == NULL)
@@ -76,7 +76,7 @@ struct canvas* create_canvas(U32 width, U32 height)
     return ca;
 }
 
-void release_canvas(struct canvas *ca)
+void canvas_release(struct canvas *ca)
 {
     if(ca)
     {
@@ -88,7 +88,7 @@ void release_canvas(struct canvas *ca)
     }
 }
 
-void paint_canvas(struct canvas *ca, U32 x, U32 y)
+void canvas_paint(struct canvas *ca, U32 x, U32 y)
 {
     int i;
     U32 width, height;
@@ -120,57 +120,65 @@ void paint_canvas(struct canvas *ca, U32 x, U32 y)
     }
 }
 
-void fill_rectangle(struct canvas *ca, U32 x, U32 y, U32 width, U32 height, COLOR color)
+static inline void canvas_line_vertical(struct canvas *ca,
+        U32 x, U32 y1, U32 y2, COLOR color)
 {
-    int i, j;
-    U32 step;
-    U32 *dest = ((U32 *)ca->data) + y * ca->width + x;
-    U32 a;
+    U32 y, a;
+    U32 *dest;
 
-    if(!check_position_param(ca, x, y, &width, &height))
-        return;
+    if(y2 < y1)
+        SWAP(y1, y2);
 
-    step = ca->width - width;
+    dest = ((U32 *)ca->data) + y1 * ca->width + x;
     a = A(color);
-
-    for(i = 0; i < height; i++)
-    {    
-        for(j = 0; j < width; j++)
-        {
-            *(dest++) = alpha_blend(color, *dest, a);
-        }
-        dest += step;
+    for(y = y1; y < y2; y++)
+    {
+        *dest = alpha_blend(color, *dest, a);
+        dest += ca->width;
     }
 }
 
-void line(struct canvas *ca, U32 x1, U32 y1, U32 x2, U32 y2, COLOR color)
+static inline void canvas_line_horizontal(struct canvas *ca,
+        U32 x1, U32 x2, U32 y, COLOR color)
 {
-    S32 startx, endx, starty, endy, x, y, dx, dy, e, rest;
+    U32 x, a;
+    U32 *dest;
+
+    if(x2 < x1)
+        SWAP(x1, x2);
+
+    dest = ((U32 *)ca->data) + y * ca->width + x1;
+    a = A(color);
+    for(x = x1; x < x2; x++)
+    {
+        *dest = alpha_blend(color, *dest, a);
+        dest++;
+    }
+}
+static inline void canvas_line_gentle(struct canvas *ca,
+        U32 x1, U32 y1, U32 x2, U32 y2, COLOR color)
+{
+    S32 x, y, dx, dy, rest, e;
     U32 a;
     U32 *dest;
 
-    if(x1 > x2)
+    if(x2 < x1)
     {
-        startx = x2; starty = y2;
-        endx = x1; endy = y1;
+        SWAP(x1, x2);
+        SWAP(y1, y2);
     }
-    else
-    {
-        startx = x1; starty = y1;
-        endx = x2; endy = y2;
-    }
-    dx = endx - startx;
-    dy = endy - starty;
 
-    e = dy > 0 ? 1 : -1;
+    dx = x2 - x1;
+    dy = y2 - y1;
+    e = dy > 0 ? 1 : (-1);
 
-    for(x = startx, y = starty; x < endx; x++)
+    for(x = x1; x < x2; x++)
     {
-        y = dy * (x - startx) / dx + starty;
-        rest = (((dy * (x - startx)) % dx) << 8) / dx;
-        rest = rest > 0 ? rest : -rest;
-        dest = ((U32 *)ca->data) + y * ca->width + x;
+        y = (dy * (x - (S32)x1)) / dx + (S32)y1;
+        rest = (((dy * (x - (S32)x1)) % dx) << 8) / dx;
+        rest = ABS(rest);
         a = 255 - rest;
+        dest = ((U32 *)ca->data) + y * ca->width + x;
         *dest = alpha_blend(color, *dest, a);
 
         if(rest != 0)
@@ -182,7 +190,116 @@ void line(struct canvas *ca, U32 x1, U32 y1, U32 x2, U32 y2, COLOR color)
     }
 }
 
-void text(struct canvas *ca, U32 x, U32 y, U32 width, U32 height,
+static inline void canvas_line_steep(struct canvas *ca,
+        U32 x1, U32 y1, U32 x2, U32 y2, COLOR color)
+{
+    S32 x, y, dx, dy, e, rest;
+    U32 a;
+    U32 *dest;
+
+    if(y2 < y1)
+    {
+        SWAP(x1, x2);
+        SWAP(y1, y2);
+    }
+
+    dx = x2 - x1;
+    dy = y2 - y1;
+    e = dx > 0 ? 1 : (-1);
+
+    for(y = y1; y < y2; y++)
+    {
+        x = (dx * (y - (S32)y1)) / dy + (S32)x1;
+        rest = (((dx * (y - (S32)y1)) % dy) << 8) / dy;
+        rest = ABS(rest);
+        a = 255 - rest;
+        dest = ((U32 *)ca->data) + y * ca->width + x;
+        *dest = alpha_blend(color, *dest, a);
+
+        if(rest != 0)
+        {
+            dest = ((U32 *)ca->data) + y * ca->width + (x + e);
+            a = rest;
+            *dest = alpha_blend(color, *dest, a);
+        }
+    }
+}
+
+void canvas_line(struct canvas *ca, 
+   U32 x1, U32 y1, U32 x2, U32 y2, COLOR color)
+{
+    S32 dx = x2 - x1, dy = y2 - y1;
+
+    if(x1 > xres || x2 > xres || y1 > yres || y2 > yres
+            ||((x1 == x2) && (y1 == y2)))
+        return;
+
+    if(x1 == x2)
+    {
+        canvas_line_vertical(ca, x1, y1, y2, color);
+        return;
+    }
+    if(y1 == y2)
+    {
+        canvas_line_horizontal(ca, x1, x2, y1, color);
+        return;
+    }
+
+    if(ABS(dx) > ABS(dy))
+    {
+        canvas_line_gentle(ca, x1, y1, x2, y2, color); // antialias
+        return;
+    }
+    else
+    {
+        canvas_line_steep(ca, x1, y1, x2, y2, color); // antialias
+        return;
+    }
+}
+
+void canvas_fillrect(struct canvas *ca, 
+   U32 x, U32 y, U32 width, U32 height, COLOR color)
+{
+    int i, j;
+    U32 step;
+    U32 *dest = ((U32 *)ca->data) + y * ca->width + x;
+    U32 a = A(color);
+
+    if(!check_position_param(ca, x, y, &width, &height))
+        return;
+
+    step = ca->width - width;
+
+    for(i = 0; i < height; i++)
+    {
+        for(j = 0; j < width; j++)
+        {
+            *(dest++) = alpha_blend(color, *dest, a);
+        }
+        dest += step;
+    }
+}
+
+void canvas_rect(struct canvas *ca, 
+   U32 x, U32 y, U32 width, U32 height, COLOR color)
+{
+    U32 x1, y1, x2, y2;
+
+    if(!check_position_param(ca, x, y, &width, &height))
+        return;
+
+    x1 = x + width - 1; y1 = y;
+    canvas_line(ca, x, y, x1, y1, color);
+    x2 = x1; y2 = y + height - 1;
+    canvas_line(ca, x1, y1, x2, y2, color);
+    x1 = x; y1 = y2;
+    canvas_line(ca, x2, y2, x1, y1, color);
+    canvas_line(ca, x1, y1, x, y, color);
+
+    return;
+}
+
+void canvas_text(struct canvas *ca, U32 x, U32 y, U32 width, U32 height,
         COLOR color, const S8 *str)
 {
     FT_GlyphSlot slot = face->glyph;
