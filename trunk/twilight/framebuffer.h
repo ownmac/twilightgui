@@ -1,8 +1,8 @@
-#ifndef _FRAMEBUFFER_H
-#define _FRAMEBUFFER_H
+#ifndef FRAMEBUFFER_H_
+#define FRAMEBUFFER_H_
 
 #include "common.h"
 
-int lcd_init();
+int framebuffer_init();
 
 #endif
