@@ -274,7 +274,8 @@ void canvas_fillrect(struct canvas *ca,
     {
         for(j = 0; j < width; j++)
         {
-            *(dest++) = alpha_blend(color, *dest, a);
+            *dest = alpha_blend(color, *dest, a);
+            dest++;
         }
         dest += step;
     }
@@ -295,6 +296,19 @@ void canvas_rect(struct canvas *ca,
     x1 = x; y1 = y2;
     canvas_line(ca, x2, y2, x1, y1, color);
     canvas_line(ca, x1, y1, x, y, color);
+
+    return;
+}
+
+void canvas_point(struct canvas *ca, U32 x, U32 y, COLOR color)
+{
+	U32 a = A(color);
+	U32 *dest = ((U32 *)ca->data) + y * ca->width + x;
+
+    if(x > xres || y > yres)
+    	return;
+
+    *dest = alpha_blend(color, *dest, a);
 
     return;
 }
@@ -356,7 +370,8 @@ void canvas_text(struct canvas *ca, U32 x, U32 y, U32 width, U32 height,
             {
                 a = slot->bitmap.buffer[bmp_index++];
                 a = (A(color) * a) >> 8;
-                *(dest++) = alpha_blend(color, *dest, a);
+                *dest = alpha_blend(color, *dest, a);
+                dest++;
             }
             bmp_index += slot->bitmap.width - cur_width;
             dest += step;

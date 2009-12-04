@@ -27,6 +27,7 @@ void canvas_fillrect(struct canvas *ca,
         U32 x, U32 y, U32 width, U32 height, COLOR color);
 void canvas_rect(struct canvas *ca,
         U32 x, U32 y, U32 width, U32 height, COLOR color);
+void canvas_point(struct canvas *ca, U32 x, U32 y, COLOR color);
 void canvas_text(struct canvas *ca, U32 x, U32 y, U32 wdith, U32 height,
 		COLOR color, const S8 *str);
 
