@@ -23,6 +23,7 @@ static inline U16 utf8_to_unicode(const S8 *ch)
     return unicode;
 }
 
+
 static inline U32 check_position_param(struct canvas *ca,
         U32 x, U32 y, U32 *width, U32 *height)
 {
@@ -42,6 +43,16 @@ static inline U32 check_position_param(struct canvas *ca,
     return 1;
 }
 
+static inline U32 check_position(struct canvas *ca, U32 x, U32 y)
+{
+    if(x > ca->width || y > ca->height)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
 static inline COLOR alpha_blend(COLOR src, COLOR dest, U32 a)
 {
     U32 r, g, b, color;
@@ -53,6 +64,7 @@ static inline COLOR alpha_blend(COLOR src, COLOR dest, U32 a)
     color = ARGB(255, r, g, b);
     return color;
 }
+
 
 struct canvas* canvas_create(U32 width, U32 height)
 {
@@ -120,16 +132,18 @@ void canvas_paint(struct canvas *ca, U32 x, U32 y)
     }
 }
 
+
 static inline void canvas_line_vertical(struct canvas *ca,
         U32 x, U32 y1, U32 y2, COLOR color)
 {
     U32 y, a;
-    U32 *dest;
+    COLOR *dest;
 
     if(y2 < y1)
         SWAP(y1, y2);
 
-    dest = ((U32 *)ca->data) + y1 * ca->width + x;
+
+    dest = ((COLOR*)ca->data) + y1 * ca->width + x;
     a = A(color);
     for(y = y1; y < y2; y++)
     {
@@ -138,16 +152,18 @@ static inline void canvas_line_vertical(struct canvas *ca,
     }
 }
 
+
 static inline void canvas_line_horizontal(struct canvas *ca,
         U32 x1, U32 x2, U32 y, COLOR color)
 {
     U32 x, a;
-    U32 *dest;
+    COLOR *dest;
 
     if(x2 < x1)
         SWAP(x1, x2);
 
-    dest = ((U32 *)ca->data) + y * ca->width + x1;
+
+    dest = ((COLOR*)ca->data) + y * ca->width + x1;
     a = A(color);
     for(x = x1; x < x2; x++)
     {
@@ -155,12 +171,13 @@ static inline void canvas_line_horizontal(struct canvas *ca,
         dest++;
     }
 }
+
 static inline void canvas_line_gentle(struct canvas *ca,
         U32 x1, U32 y1, U32 x2, U32 y2, COLOR color)
 {
-    S32 x, y, dx, dy, rest, e;
+    S32 x, dx, dy, dx2, dy2, e, width;
     U32 a;
-    U32 *dest;
+    COLOR *dest;
 
     if(x2 < x1)
     {
@@ -168,25 +185,41 @@ static inline void canvas_line_gentle(struct canvas *ca,
         SWAP(y1, y2);
     }
 
+	dest = ((COLOR*)ca->data) + y1 * ca->width + x1;
+
     dx = x2 - x1;
-    dy = y2 - y1;
-    e = dy > 0 ? 1 : (-1);
+    dy = (S32)y2 - (S32)y1;
+    dx2 = dx * 2;
+    dy2 = ABS(dy) * 2;
+    width = (dy < 0) ? -ca->width : ca->width;
+    e = 0;
 
     for(x = x1; x < x2; x++)
     {
-        y = (dy * (x - (S32)x1)) / dx + (S32)y1;
-        rest = (((dy * (x - (S32)x1)) % dx) << 8) / dx;
-        rest = ABS(rest);
-        a = 255 - rest;
-        dest = ((U32 *)ca->data) + y * ca->width + x;
-        *dest = alpha_blend(color, *dest, a);
-
-        if(rest != 0)
+    	a = (e << 8) / dx2;
+        if(e > dx)
         {
-            dest = ((U32 *)ca->data) + (y + e) * ca->width + x;
-            a = rest;
-            *dest = alpha_blend(color, *dest, a);
+        	if(a > 255)
+        	{
+        		a -= 255;
+        		dest += width;
+        		*dest = alpha_blend(color, *dest, 255 - a);
+        		*(dest + width) = alpha_blend(color, *(dest + width), a);
+        	}
+        	else {
+				*dest = alpha_blend(color, *dest, 255 - a);
+				dest += width;
+				*dest = alpha_blend(color, *dest, a);
+        	}
+        	e += dy2 - dx2;
         }
+        else
+        {
+			*dest = alpha_blend(color, *dest, 255 - a);
+			*(dest + width) = alpha_blend(color, *(dest + width), a);
+			e += dy2;
+        }
+        dest++;
     }
 }
 
@@ -195,7 +228,7 @@ static inline void canvas_line_steep(struct canvas *ca,
 {
     S32 x, y, dx, dy, e, rest;
     U32 a;
-    U32 *dest;
+    COLOR *dest;
 
     if(y2 < y1)
     {
@@ -213,12 +246,12 @@ static inline void canvas_line_steep(struct canvas *ca,
         rest = (((dx * (y - (S32)y1)) % dy) << 8) / dy;
         rest = ABS(rest);
         a = 255 - rest;
-        dest = ((U32 *)ca->data) + y * ca->width + x;
+        dest = ((COLOR*)ca->data) + y * ca->width + x;
         *dest = alpha_blend(color, *dest, a);
 
         if(rest != 0)
         {
-            dest = ((U32 *)ca->data) + y * ca->width + (x + e);
+            dest = ((COLOR*)ca->data) + y * ca->width + (x + e);
             a = rest;
             *dest = alpha_blend(color, *dest, a);
         }
@@ -257,12 +290,13 @@ void canvas_line(struct canvas *ca,
     }
 }
 
+
 void canvas_fillrect(struct canvas *ca, 
    U32 x, U32 y, U32 width, U32 height, COLOR color)
 {
     int i, j;
     U32 step;
-    U32 *dest = ((U32 *)ca->data) + y * ca->width + x;
+    COLOR *dest = ((COLOR*)ca->data) + y * ca->width + x;
     U32 a = A(color);
 
     if(!check_position_param(ca, x, y, &width, &height))
@@ -274,8 +308,7 @@ void canvas_fillrect(struct canvas *ca,
     {
         for(j = 0; j < width; j++)
         {
-            *dest = alpha_blend(color, *dest, a);
-            dest++;
+            *(dest++) = alpha_blend(color, *dest, a);
         }
         dest += step;
     }
@@ -300,17 +333,88 @@ void canvas_rect(struct canvas *ca,
     return;
 }
 
-void canvas_point(struct canvas *ca, U32 x, U32 y, COLOR color)
+static inline void canvas_circle_point(struct canvas *ca,
+        U32 x, U32 y, U32 x1, U32 y1, U32 a, COLOR color)
 {
-	U32 a = A(color);
-	U32 *dest = ((U32 *)ca->data) + y * ca->width + x;
+	S32 x2, y2;
+	COLOR *dest;
+	U32 width = ca->width;
 
-    if(x > xres || y > yres)
-    	return;
+	x2 = (S32)x + x1; y2 = (S32)y - y1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest = ((COLOR *)ca->data) + y2 * width + x2;
+	*dest = alpha_blend(color, *dest, a);
 
-    *dest = alpha_blend(color, *dest, a);
+	y2 = (S32)y + y1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest += (y1 * width) << 1;
+	*dest = alpha_blend(color, *dest, a);
 
-    return;
+	x2 = (S32)x - x1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest -= x1 << 1;
+	*dest = alpha_blend(color, *dest, a);
+
+	y2 = (S32)y - y1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest -= (y1 * width) << 1;
+	*dest = alpha_blend(color, *dest, a);
+
+	x2 = (S32)x + y1; y2 = (S32)y - x1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest = ((COLOR *)ca->data) + y2 * width + x2;
+	*dest = alpha_blend(color, *dest, a);
+
+	y2 = (S32)y + x1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest += (x1 * width) << 1;
+	*dest = alpha_blend(color, *dest, a);
+
+	x2 = (S32)x - y1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest -= y1 << 1;
+	*dest = alpha_blend(color, *dest, a);
+
+	y2 = (S32)y + x1;
+	if(!check_position(ca, x2, y2))
+		return;
+	dest -= (x1 * width) << 1;
+	*dest = alpha_blend(color, *dest, a);
+}
+
+void canvas_circle(struct canvas *ca,
+        U32 x, U32 y, U32 r, COLOR color)
+{
+    S32 x1 = r, y1 = 0, e = 5 - (r << 2);
+    U32 a;
+
+    for(y1 = 1; y1 <= x1; y1++)
+    {
+        a = ((e + (x1 << 3)) << 8) / (x1 << 3);
+        //a = ABS(e);
+        printf("%d %d\n",e, a);
+        if(e < 0)
+        {
+        	canvas_circle_point(ca, x, y, x1, y1, 255 - a, color);
+        	canvas_circle_point(ca, x, y, x1 - 1, y1, a, color);
+        	e += (y1 << 3) + 4;
+        }
+        else
+        {
+        	a -= 255;
+        	canvas_circle_point(ca, x, y, x1, y1, a, color);
+        	x1--;
+        	canvas_circle_point(ca, x, y, x1, y1, 255 - a, color);
+			e += (y1 << 3) - (x1 << 3) + 4;
+        }
+    }
 }
 
 void canvas_text(struct canvas *ca, U32 x, U32 y, U32 width, U32 height,
@@ -323,7 +427,7 @@ void canvas_text(struct canvas *ca, U32 x, U32 y, U32 width, U32 height,
     U16 unicode;
     const S8 *cur = str;
     const S8 *end = str + strlen(str);
-    U32 *dest;
+    COLOR *dest;
 
     if((!check_position_param(ca, x, y, &width, &height))
         || str == NULL)
@@ -352,16 +456,16 @@ void canvas_text(struct canvas *ca, U32 x, U32 y, U32 width, U32 height,
 
         bmp_index = 0;
         if(slot->bitmap.width > width - painted_width - slot->bitmap_left)
-            cur_width = width - painted_width - slot->bitmap_left; //实际显示宽度
+            cur_width = width - painted_width - slot->bitmap_left; //ʵ����ʾ���
         else
             cur_width = slot->bitmap.width;
         if(slot->bitmap.rows + y > ca->height)
             cur_height = ca->height - y;
         else
-            cur_height = slot->bitmap.rows; //实际显示高度
+            cur_height = slot->bitmap.rows; //ʵ����ʾ�߶�
 
         step = ca->width - cur_width;
-        dest = ((U32 *)ca->data) + (y + font_size - slot->bitmap_top) * ca->width
+        dest = ((COLOR*)ca->data) + (y + font_size - slot->bitmap_top) * ca->width
                 + (x + slot->bitmap_left + painted_width);
 
         for(i = 0; i < cur_height; i++)
@@ -370,17 +474,15 @@ void canvas_text(struct canvas *ca, U32 x, U32 y, U32 width, U32 height,
             {
                 a = slot->bitmap.buffer[bmp_index++];
                 a = (A(color) * a) >> 8;
-                *dest = alpha_blend(color, *dest, a);
-                dest++;
+                *(dest++) = alpha_blend(color, *dest, a);
             }
             bmp_index += slot->bitmap.width - cur_width;
             dest += step;
         }
-        painted_width += slot->advance.x >> 6; //已显示的字符总宽
+        painted_width += slot->advance.x >> 6; //����ʾ���ַ��ܿ�
         if(painted_width >= width)
             return;
     }
 
     return;
 }
-
