@@ -21,6 +21,14 @@ int main(int argc, char **argv)
     canvas_fillrect(ca_bg, 0, 0, 320, 240, ARGB(255, 0, 0, 0));
     canvas_paint(ca_bg, 0, 0);
 
+   	canvas_line(ca, 0, 120, 320, 120, ARGB(255, 0, 255, 0));
+   	canvas_line(ca, 160, 0, 160, 240, ARGB(255, 0, 255, 0));
+   	canvas_line(ca, 40, 0, 280, 240, ARGB(255, 0, 255, 0));
+   	canvas_line(ca, 40, 240, 280, 0, ARGB(255, 0, 255, 0));
+   	canvas_circle(ca, 160, 120, 40, ARGB(255, 0, 255, 0));
+   	canvas_paint(ca, 0, 0);
+
+    /*
     while(1)
     {
     	time(&cur_tm);
@@ -29,7 +37,7 @@ int main(int argc, char **argv)
     	canvas_paint(ca, 0, 0);
     	sleep(1);
     }
-
+	*/
 	canvas_release(ca_bg);
 	canvas_release(ca);
     return 0;
