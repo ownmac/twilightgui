@@ -13,23 +13,23 @@
 
 struct canvas {
     void *data;
-    U32 width;
-    U32 height;
+    int width;
+    int height;
 };
 
-struct canvas* canvas_create(U32 width, U32 height);
+struct canvas* canvas_create(int width, int height);
 void canvas_release(struct canvas *ca);
-void canvas_paint(struct canvas *ca, U32 x, U32 y);
+void canvas_paint(struct canvas *ca, int x, int y);
 
 void canvas_line(struct canvas *ca, 
-        U32 x1, U32 y1, U32 x2, U32 y2, COLOR color);
+        int x1, int y1, int x2, int y2, COLOR color);
 void canvas_fillrect(struct canvas *ca,
-        U32 x, U32 y, U32 width, U32 height, COLOR color);
+        int x, int y, int width, int height, COLOR color);
 void canvas_rect(struct canvas *ca,
-        U32 x, U32 y, U32 width, U32 height, COLOR color);
-void canvas_point(struct canvas *ca, U32 x, U32 y, COLOR color);
-void canvas_circle(struct canvas *ca, U32 x, U32 y, U32 r, COLOR color);
-void canvas_text(struct canvas *ca, U32 x, U32 y, U32 wdith, U32 height,
+        int x, int y, int width, int height, COLOR color);
+void canvas_point(struct canvas *ca, int x, int y, COLOR color);
+void canvas_circle(struct canvas *ca, int x, int y, int r, COLOR color);
+void canvas_text(struct canvas *ca, int x, int y, int wdith, int height,
 		COLOR color, const S8 *str);
 
 #endif
