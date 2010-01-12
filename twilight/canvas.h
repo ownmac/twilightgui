@@ -29,7 +29,7 @@ void canvas_rect(struct canvas *ca,
         int x, int y, int width, int height, COLOR color);
 void canvas_point(struct canvas *ca, int x, int y, COLOR color);
 void canvas_circle(struct canvas *ca, int x, int y, int r, COLOR color);
-void canvas_text(struct canvas *ca, int x, int y, int wdith, int height,
+void canvas_text(struct canvas *ca, int x, int y, int size,
 		COLOR color, const S8 *str);
 
 #endif
