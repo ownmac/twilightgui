@@ -27,7 +27,7 @@ static inline U16 utf8_to_unicode(const S8 *ch)
 static inline int check_position_param(struct canvas *ca,
         int x, int y, int *width, int *height)
 {
-    if(x > ca->width || y > ca->height)
+    if(x >= ca->width || y >= ca->height)
     {
         return 0;
     }
@@ -45,7 +45,7 @@ static inline int check_position_param(struct canvas *ca,
 
 static inline int check_position(struct canvas *ca, int x, int y)
 {
-    if(x > ca->width || y > ca->height)
+    if(x >= ca->width || y >= ca->height)
     {
         return 0;
     }
@@ -108,7 +108,7 @@ void canvas_paint(struct canvas *ca, int x, int y)
     U8 *src = ca->data;
     int src_step = ca->width * sizeof(COLOR);
 
-    if(x > xres || y > yres)
+    if(x >= xres || y >= yres)
     {
         return;
     }
@@ -145,7 +145,7 @@ static inline void canvas_line_vertical(struct canvas *ca,
 
     dest = ((COLOR*)ca->data) + y1 * ca->width + x;
     a = A(color);
-    for(y = y1; y < y2; y++)
+    for(y = y1; y <= y2; y++)
     {
         *dest = alpha_blend(color, *dest, a);
         dest += ca->width;
@@ -165,7 +165,7 @@ static inline void canvas_line_horizontal(struct canvas *ca,
 
     dest = ((COLOR*)ca->data) + y * ca->width + x1;
     a = A(color);
-    for(x = x1; x < x2; x++)
+    for(x = x1; x <= x2; x++)
     {
         *dest = alpha_blend(color, *dest, a);
         dest++;
@@ -263,7 +263,7 @@ void canvas_line(struct canvas *ca,
 {
     int dx = x2 - x1, dy = y2 - y1;
 
-    if(x1 > xres || x2 > xres || y1 > yres || y2 > yres
+    if(x1 >= xres || x2 >= xres || y1 >= yres || y2 >= yres
             ||((x1 == x2) && (y1 == y2)))
         return;
 
@@ -325,10 +325,10 @@ void canvas_rect(struct canvas *ca,
     x1 = x + width - 1; y1 = y;
     canvas_line(ca, x, y, x1, y1, color);
     x2 = x1; y2 = y + height - 1;
-    canvas_line(ca, x1, y1, x2, y2, color);
+    canvas_line(ca, x1, y1 + 1, x2, y2, color);
     x1 = x; y1 = y2;
-    canvas_line(ca, x2, y2, x1, y1, color);
-    canvas_line(ca, x1, y1, x, y, color);
+    canvas_line(ca, x2 - 1, y2, x1, y1, color);
+    canvas_line(ca, x1, y1 - 1, x, y + 1, color);
 
     return;
 }
@@ -417,23 +417,22 @@ void canvas_circle(struct canvas *ca,
     }
 }
 
-void canvas_text(struct canvas *ca, int x, int y, int width, int height,
+void canvas_text(struct canvas *ca, int x, int y, int size,
         COLOR color, const S8 *str)
 {
     FT_GlyphSlot slot = face->glyph;
     int i, j, a;
-    int painted_width = 0, bmp_index = 0, font_size = height;
+    int painted_width = 0, bmp_index = 0;
     int step, cur_width, cur_height;
     U16 unicode;
     const S8 *cur = str;
     const S8 *end = str + strlen(str);
     COLOR *dest;
 
-    if((!check_position_param(ca, x, y, &width, &height))
-        || str == NULL)
+    if(!check_position(ca, x, y) || str == NULL)
         return;
 
-    if(FT_Set_Pixel_Sizes(face, 0, font_size))
+    if(FT_Set_Pixel_Sizes(face, 0, size))
     {
         printf("freetype set pixel sizes failed!\n");
         return;
@@ -455,17 +454,17 @@ void canvas_text(struct canvas *ca, int x, int y, int width, int height,
         }
 
         bmp_index = 0;
-        if(slot->bitmap.width > width - painted_width - slot->bitmap_left)
-            cur_width = width - painted_width - slot->bitmap_left; //ʵ����ʾ���
+        if(slot->bitmap.width > ca->width - x - painted_width - slot->bitmap_left)
+            cur_width = ca->width - x - painted_width - slot->bitmap_left;
         else
             cur_width = slot->bitmap.width;
         if(slot->bitmap.rows + y > ca->height)
             cur_height = ca->height - y;
         else
-            cur_height = slot->bitmap.rows; //ʵ����ʾ�߶�
+            cur_height = slot->bitmap.rows;
 
         step = ca->width - cur_width;
-        dest = ((COLOR*)ca->data) + (y + font_size - slot->bitmap_top) * ca->width
+        dest = ((COLOR*)ca->data) + (y + size - slot->bitmap_top) * ca->width
                 + (x + slot->bitmap_left + painted_width);
 
         for(i = 0; i < cur_height; i++)
@@ -479,8 +478,8 @@ void canvas_text(struct canvas *ca, int x, int y, int width, int height,
             bmp_index += slot->bitmap.width - cur_width;
             dest += step;
         }
-        painted_width += slot->advance.x >> 6; //����ʾ���ַ��ܿ�
-        if(painted_width >= width)
+        painted_width += slot->advance.x >> 6;
+        if(painted_width >= ca->width - x)
             return;
     }
 
